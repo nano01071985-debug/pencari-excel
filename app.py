@@ -1,45 +1,35 @@
 import streamlit as st
 import pandas as pd
-from rapidfuzz import process, fuzz
 
 st.set_page_config(page_title="Pencari Data Excel", page_icon="🔍", layout="centered")
 
 st.title("🔍 Web Tool Pencari Data Excel")
-st.write("Unggah file Excel Anda, lalu ketik nama atau kata kunci yang dicari.")
+st.write("Unggah file Excel Anda, lalu ketik kata kunci yang ingin dicari.")
 
 uploaded_file = st.file_uploader("Upload File Excel Anda (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
-    # 1. Baca Excel
-    df = pd.read_excel(uploaded_file)
-    
-    # 2. Hapus baris sub-header Excel (baris yang mengandung 'Laki-Laki' / 'Perempuan' / 'KTP' di header)
-    # Mencari baris pertama yang memiliki Nomor/Angka di kolom pertama
+    # 1. Baca Excel dan bersihkan baris kosong
+    df = pd.read_excel(uploaded_file).fillna("")
     df_clean = df[pd.to_numeric(df.iloc[:, 0], errors='coerce').notna()].copy()
-    df_clean = df_clean.fillna("-")
     
     st.subheader("📋 Preview Data Excel (Sudah Dibersihkan)")
     st.dataframe(df_clean.head())
 
-    tanya = st.text_input("Ketik kata kunci (Contoh: Komarudin, Hartono, dll):")
+    # 2. Kotak input pencarian
+    tanya = st.text_input("Ketik kata kunci (Contoh: Komarudin, RW 01, dll):")
 
     if tanya:
-        # Cari kolom nama (kolom ke-3 / index 2)
-        kolom_nama = df_clean.columns[2]
-        daftar_nama = df_clean[kolom_nama].astype(str).tolist()
+        # Cari kata kunci di seluruh kolom secara otomatis (Case-insensitive / tidak peduli huruf besar/kecil)
+        mask = df_clean.astype(str).apply(lambda col: col.str.contains(tanya, case=False, na=False)).any(axis=1)
+        hasil_df = df_clean[mask]
         
-        # Pencarian Fuzzy menggunakan WRatio
-        hasil = process.extractOne(tanya, daftar_nama, scorer=fuzz.WRatio)
-        
-        if hasil and hasil[1] >= 50:
-            idx_ditemukan = hasil[2]
-            row_ditemukan = df_clean.iloc[[idx_ditemukan]]
-            
+        if not hasil_df.empty:
             st.markdown("---")
-            st.success(f"Ditemukan: **{hasil[0]}** (Tingkat Kemiripan: {hasil[1]:.0f}%)")
+            st.success(f"Ditemukan **{len(hasil_df)}** data yang cocok!")
             
-            # Tampilkan detail informasi lengkap
+            # Tampilkan hasil pencarian dalam bentuk tabel rapi
             st.subheader("📄 Detail Informasi:")
-            st.dataframe(row_ditemukan)
+            st.dataframe(hasil_df)
         else:
             st.warning("Data tidak ditemukan. Coba ketik kata kunci lain.")
