@@ -1,54 +1,65 @@
 import streamlit as st
 import pandas as pd
 from rapidfuzz import process, fuzz
+import io
 
-# Konfigurasi Tampilan Halaman Web
-st.set_page_config(page_title="Pencari Data Barang", page_icon="🔍", layout="centered")
+st.set_page_config(page_title="Pencari Data Excel", page_icon="🔍", layout="centered")
 
-st.title("🔍 Alat Web Pencari data Excel")
-st.write("Unggah file Excel Anda, lalu cari nama datanya menggunakan pencarian pintar.")
+st.title("🔍 Web Tool Pencari Data Excel")
+st.write("Unggah file Excel Anda, pilih kolomnya, lalu cari datanya dengan mudah.")
 
-# 1. Fitur Upload File Excel
+# 1. Upload File Excel
 uploaded_file = st.file_uploader("Upload File Excel Anda (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
-    # Membaca data dari file yang di-upload
     df = pd.read_excel(uploaded_file).fillna("-")
     
     st.subheader("📋 Preview Data Excel")
-    st.dataframe(df.head()) # Menampilkan 5 baris pertama
+    st.dataframe(df.head())
 
-    # Memastikan file Excel memiliki kolom 'Nama Barang'
-    if 'Nama Barang' in df.columns:
-        daftar_barang = df['Nama Barang'].astype(str).tolist()
-        
-        # 2. Kolom Input Pencarian Teks
-        tanya = st.text_input("Ketik nama barang yang dicari:", placeholder="Contoh: semen gresik")
+    # 2. Pengguna Memilih Kolom yang Ingin Dicari
+    semua_kolom = df.columns.tolist()
+    kolom_terpilih = st.selectbox("Pilih Kolom yang Ingin Dicari:", semua_kolom)
+
+    if kolom_terpilih:
+        daftar_data = df[kolom_terpilih].astype(str).tolist()
+        tanya = st.text_input(f"Ketik kata kunci untuk mencari di kolom '{kolom_terpilih}':")
         
         if tanya:
-            # Mengabaikan kata basa-basi
-            kata_abaikan = ["cek", "harga", "stok", "ada", "gak", "dong", "bro", "berapa", "tolong"]
-            kata_kunci = [k for k in tanya.lower().split() if k not in kata_abaikan]
-            frasa_cari = " ".join(kata_kunci)
-            
-            # Pencarian Pintar dengan RapidFuzz
-            hasil = process.extractOne(frasa_cari, daftar_barang, scorer=fuzz.partial_ratio)
+            # Pencarian Fuzzy
+            hasil = process.extractOne(tanya, daftar_data, scorer=fuzz.partial_ratio)
             
             if hasil and hasil[1] >= 50:
-                nama_ditemukan = hasil[0]
+                data_ditemukan = hasil[0]
                 skor = hasil[1]
                 
-                # Mengambil data baris barang yang paling cocok
-                row = df[df['Nama Barang'].astype(str) == nama_ditemukan].iloc[0]
+                # Ambil baris data yang cocok
+                row = df[df[kolom_terpilih].astype(str) == data_ditemukan].iloc[0]
                 
                 st.markdown("---")
-                st.success(f"Ditemukan: **{nama_ditemukan}** (Tingkat Kemiripan: {skor:.0f}%)")
+                st.success(f"Ditemukan: **{data_ditemukan}** (Tingkat Kemiripan: {skor:.0f}%)")
                 
-                # Menampilkan Informasi dalam Bentuk Kartu (Metrics)
-                col1, col2 = st.columns(2)
-                col1.metric("Harga", f"Rp {row.get('Harga (Rp)', 0):,.0f}")
-                col2.metric("Stok Tersedia", f"{row.get('Stok', '-')} {row.get('Satuan', '')}")
+                # Tampilkan detail data dalam tabel
+                st.subheader("📄 Detail Informasi Lengkap:")
+                df_detail = pd.DataFrame([row])
+                st.dataframe(df_detail)
+                
+                # --- FITUR TOMBOL DOWNLOAD HASIL PENCARIAN ---
+                st.subheader("📥 Download Hasil")
+                
+                # Konversi hasil pencarian ke format Excel
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_detail.to_excel(writer, index=False, sheet_name='Hasil_Pencarian')
+                data_excel = buffer.getvalue()
+                
+                # Tombol Download Excel
+                st.download_button(
+                    label="📊 Download Hasil Ini (.xlsx)",
+                    data=data_excel,
+                    file_name=f"hasil_pencarian_{data_ditemukan}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                
             else:
-                st.warning("Barang tidak ditemukan. Coba gunakan kata kunci lain.")
-    else:
-        st.error("⚠️ File Excel harus memiliki header kolom bernama **'Nama Barang'**.")
+                st.warning("Data tidak ditemukan. Coba ketik kata kunci lain.")
