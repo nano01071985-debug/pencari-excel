@@ -10,8 +10,11 @@ st.write("Unggah file Excel Anda, lalu ketik kata kunci yang ingin dicari.")
 uploaded_file = st.file_uploader("Upload File Excel Anda (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
-    # Read Excel & hapus baris yang cuma berisi strip '-' atau kosong
+    # 1. Read Excel & ganti nilai NaN dengan teks kosong
     df = pd.read_excel(uploaded_file).fillna("")
+    
+    # 2. Hapus baris yang sama sekali tidak memiliki isi teks (baris header kosong)
+    df = df[df.astype(str).apply(lambda row: "".join(row).strip() != "", axis=1)].reset_index(drop=True)
     
     st.subheader("📋 Preview Data Excel")
     st.dataframe(df.head())
@@ -19,25 +22,21 @@ if uploaded_file is not None:
     tanya = st.text_input("Ketik kata kunci (Nama, Wilayah, dll):")
 
     if tanya:
-        # Gabungkan semua data dalam satu baris menjadi satu teks panjang untuk pencarian global
-        df['gabungan_teks'] = df.astype(str).values.tolist()
-        df['gabungan_teks'] = df['gabungan_teks'].apply(lambda x: " ".join(x))
+        # Gabungkan teks per baris untuk pencarian global
+        daftar_teks = df.astype(str).apply(lambda x: " ".join(x), axis=1).tolist()
         
-        daftar_teks = df['gabungan_teks'].tolist()
-        
-        # Cari dengan RapidFuzz
+        # Cari menggunakan RapidFuzz
         hasil = process.extractOne(tanya, daftar_teks, scorer=fuzz.partial_ratio)
         
-        if hasil and hasil[1] >= 40: # Ambang batas kemiripan
+        if hasil and hasil[1] >= 50:
             idx_ditemukan = hasil[2]
-            row_ditemukan = df.iloc[idx_ditemukan].drop('gabungan_teks')
+            row_ditemukan = df.iloc[[idx_ditemukan]]
             
             st.markdown("---")
             st.success(f"Ditemukan Data yang Cocok! (Kemiripan: {hasil[1]:.0f}%)")
             
-            # Tampilkan detail baris yang cocok
+            # Tampilkan detail baris yang cocok dengan rapi
             st.subheader("📄 Detail Informasi:")
-            df_detail = pd.DataFrame(row_ditemukan).T
-            st.dataframe(df_detail)
+            st.dataframe(row_ditemukan)
         else:
             st.warning("Data tidak ditemukan. Coba ketik kata kunci lain.")
