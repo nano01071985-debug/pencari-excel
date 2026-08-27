@@ -5,7 +5,7 @@ from rapidfuzz import process, fuzz
 # Konfigurasi Tampilan Halaman Web
 st.set_page_config(page_title="Pencari Data Barang", page_icon="🔍", layout="centered")
 
-st.title("🔍 Web Tool Pencari Harga & Stok")
+st.title("🔍 Alat Web Pencari data Excel")
 st.write("Unggah file Excel Anda, lalu cari nama barang menggunakan pencarian pintar.")
 
 # 1. Fitur Upload File Excel
