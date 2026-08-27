@@ -6,7 +6,7 @@ from rapidfuzz import process, fuzz
 st.set_page_config(page_title="Pencari Data Barang", page_icon="🔍", layout="centered")
 
 st.title("🔍 Alat Web Pencari data Excel")
-st.write("Unggah file Excel Anda, lalu cari nama barang menggunakan pencarian pintar.")
+st.write("Unggah file Excel Anda, lalu cari nama datanya menggunakan pencarian pintar.")
 
 # 1. Fitur Upload File Excel
 uploaded_file = st.file_uploader("Upload File Excel Anda (.xlsx)", type=["xlsx"])
